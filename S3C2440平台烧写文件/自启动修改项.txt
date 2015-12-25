@@ -1,0 +1,93 @@
+﻿
+/etc/init.d/rcS中注释掉最后的开机自启动Qt4.7
+
+elif [ -f /opt/Qt4.7/bin/Qt ] ; then
+#       /opt/Qt4.7/bin/Qt &
+        /bin/echo "Start Qt4.7..."> /dev/tty1
+
+
+***************************************************************
+
+/etc/profile中添加开机自启动ttt/install.sh
+
+mit -S -c 0 > /dev/null 2>&1
+
+USER="`id -un`"
+LOGNAME=$USER
+PS1='[\u@\h \W]\# '
+PATH=$PATH:/usr/local/bin
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/lib:/usr/lib
+HOSTNAME=`/bin/hostname`
+
+export USER LOGNAME PS1 PATH LD_LIBRARY_PATH
+
+export TSLIB_ROOT=/usr
+export TSLIB_TSDEVICE=/dev/input/event0
+export TSLIB_CALIBFILE=/etc/pointercal
+export TSLIB_CONFFILE=/etc/ts.conf
+export TSLIB_PLUGINDIR=$TSLIB_ROOT/lib/ts/
+export TSLIB_CONSOLEDEVICE=/dev/tty
+export TSLIB_FBDEVICE=/dev/fb0
+export PATH=$TSLIB_ROOT/bin:$PATH
+export QWS_KEYBOARD=TTY:/dev/tty1
+export QWS_MOUSE_PROTO=TSLIB:/dev/input/event0
+
+export QTDIR=/opt/Qt4.7
+export QPEDIR=/opt/Qt4.7
+export QWS_DISPLAY=LinuxFB:/dev/fb0
+export QWS_DISPLAY=LinuxFB:mmWidth130:mmHeight100:0
+export QWS_SIZE=480*272
+export PATH=$QPEDIR/bin:$PATH
+export LD_LIBRARY_PATH=$QTDIR/lib:$QPEDIR/plugins/imageformats:$LD_LIBRARY_PATH
+export PATH=$QPEDIR/bin:$PATH
+export LD_LIBRARY_PATH=$QTDIR/lib:$QPEDIR/plugins/imageformats:$LD_LIBRARY_PATH
+
+if [ $LOGNAME == 'root' ];
+then
+cd /ttt
+echo 'install run from profile'
+./install.sh
+cd -
+fi
+
+
+# no-op
+/bin/echo
+
+
+*******************************************************
+
+
+
+install.sh内修改：
+
+#date:2014.4.16
+#autor:lvv
+#decription: run adhoc net system
+
+#!/bin/bash
+
+#set -e#!/bin/bash
+#set -e
+echo "insmod fpga_driver"
+insmod nic_driver.ko
+mknod /dev/fpga c 250 0
+#echo "please input inode ID"
+#read inode_ID
+inode_ID=1                         //修改节点ID
+./ap_net $inode_ID &
+
+ap_net_pid=`ps aux | grep ap_net | awk '$4!="grep" {print $1}'`
+if [ ! $ap_net_pid ];then
+  echo "ap_net failed to run"
+  exit -1
+else
+  echo $ap_net_pid
+  ./routes $ap_net_pid $inode_ID &      //*****************
+fi  
+
+amixer set Master 50
+amixer cset numid=6,iface=MIXER,name='Mic Volume' 10
+
+route_pid=`ps aux | grep routes | awk '$4!="grep" {print $1}'`     //***
+./armIF -qws $inode_ID $route_pid&                      //****
